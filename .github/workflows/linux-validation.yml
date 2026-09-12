@@ -1,0 +1,35 @@
+name: Validate distribution expansion on Linux
+on:
+  push:
+    branches: [codex/validate-distribution-expansion]
+    paths: [.github/workflows/linux-validation.yml]
+permissions:
+  contents: read
+jobs:
+  regression:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    env:
+      OMP_NUM_THREADS: '1'
+      MKL_NUM_THREADS: '1'
+      MAX_JOBS: '2'
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          ref: 2d99979a963fae3007ccf7ed3ea034d552b67e09
+      - uses: actions/setup-python@v6
+        with:
+          python-version: '3.11'
+      - name: Verify tested source
+        run: test "$(git rev-parse 'HEAD^{tree}')" = 2ab159b671d40200cb2748a1e62ecd9267572c17
+      - name: Install CPU test dependencies
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install torch==2.14.0 --index-url https://download.pytorch.org/whl/cpu
+          python -m pip install -e . pytest scipy ninja
+      - name: Run expansion regressions
+        run: python -m pytest -q tests/distributions/test_lkj.py tests/distributions/test_asymmetric_laplace.py
+      - name: Check C++ spanning-tree backend
+        run: python -m pytest -q tests/distributions/test_spanning_tree.py -k cpp
+      - name: Check module serialization
+        run: python -m pytest -q tests/nn/test_module.py::test_pyro_serialize
